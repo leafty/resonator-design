@@ -1,0 +1,2 @@
+data/spiral-resonators/Outputs.csv filter=lfs diff=lfs merge=lfs -text
+data/spiral-resonators/Inputs.csv filter=lfs diff=lfs merge=lfs -text

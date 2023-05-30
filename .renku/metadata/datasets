@@ -15,7 +15,7 @@
                   "spiral-resonators",
                   {
                     "@renku_data_type": "renku.domain_model.dataset.Dataset",
-                    "@renku_oid": "ea564dd60b9bd5fe849adc5509529dd9c7a3a919d3037d0f2564ec6ce5bdd6d4",
+                    "@renku_oid": "cf46d5abdd540c700675d220ffe33598d94302435faf1280bff5223f71f9bb08",
                     "@renku_reference": true
                   }
                 ]
