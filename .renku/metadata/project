@@ -1,0 +1,38 @@
+{
+  "@renku_data_type": "renku.domain_model.project.Project",
+  "@renku_oid": "project",
+  "agent_version": "2.4.1",
+  "annotations": [],
+  "creator": {
+    "@renku_data_type": "renku.domain_model.provenance.agent.Person",
+    "@renku_data_value": {
+      "affiliation": null,
+      "alternate_name": null,
+      "email": "christian.donner@bccn-berlin.de",
+      "id": "mailto:christian.donner@bccn-berlin.de",
+      "name": "Christian Donner"
+    }
+  },
+  "date_created": {
+    "@renku_data_type": "datetime.datetime",
+    "@renku_data_value": "2023-05-30T11:21:59.112507+00:00"
+  },
+  "description": "In this project, we use conditional variational autoencoders (cVAE) to design spiral resonators that dampen multiple on-demand band gaps.",
+  "id": "/projects/christian.donner/resonator-design",
+  "keywords": [],
+  "minimum_renku_version": "2.4.0",
+  "name": "resonator-design",
+  "template_metadata": {
+    "@renku_data_type": "renku.domain_model.project.ProjectTemplateMetadata",
+    "@renku_data_value": {
+      "immutable_template_files": [],
+      "metadata": "{\"__template_source__\": \"https://github.com/SwissDataScienceCenter/renku-project-template\", \"__template_ref__\": \"0.6.0\", \"__template_id__\": \"python-minimal\", \"__namespace__\": \"christian.donner\", \"__repository__\": \"https://renkulab.io/gitlab\", \"__sanitized_project_name__\": \"resonator-design\", \"__project_slug__\": \"christian.donner/resonator-design\", \"__project_description__\": \"In this project, we use conditional variational autoencoders (cVAE) to design spiral resonators that dampen multiple on-demand band gaps.\", \"__renku_version__\": \"2.4.1\", \"name\": \"resonator-design\", \"__name__\": \"resonator-design\", \"__template_version__\": \"1a620bee25f5193da0a0ce99d5a120bc2b5c725e\", \"__automated_update__\": true}",
+      "ssh_supported": true,
+      "template_id": "python-minimal",
+      "template_ref": "0.6.0",
+      "template_source": "https://github.com/SwissDataScienceCenter/renku-project-template",
+      "template_version": "1a620bee25f5193da0a0ce99d5a120bc2b5c725e"
+    }
+  },
+  "version": 10
+}
