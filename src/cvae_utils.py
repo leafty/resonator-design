@@ -2,55 +2,77 @@ import sys
 sys.path.append('../')
 sys.path.append('../src/')
 
-from data_io import get_spiral_data
-from daaad.src.learning_model.models.cvae import CondVAEModel
+from daaad.src.models.cae import CondVAEModel
 from daaad.src.utils import rec_concat_dict
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 import pytorch_lightning as pl
 import torch
 from typing import Union, Dict, List, Tuple
 import numpy as np
 import pandas as pd
+import seaborn as sn
 from matplotlib import pyplot as plt
 
-def train_cvae(num_modes: int = 2, data_fraction: float=1, only_freqs: bool=False, model_name: str='spiral', 
-               batch_size: int=128, val_split: float=.1) -> None:
-    dataset, _ = get_spiral_data(num_modes=num_modes, data_fraction=data_fraction, only_freqs=only_freqs)
-    train_gen, val_gen, test_gen = dataset.get_data_loaders(batch_size, val_split=val_split, test_split=.1)
+def train_cvae(model_name: str, dataset: Dataset, train_gen: DataLoader, val_gen: DataLoader, 
+               layer_widths: list=[64, 64], latent_dim: int=4) -> None:
+    """Tr
+
+    Args:
+        num_modes: _description_. Defaults to 2.
+        data_fraction: _description_. Defaults to 1.
+        only_freqs: _description_. Defaults to False.
+        model_name: _description_. Defaults to 'spiral'.
+        batch_size: _description_. Defaults to 128.
+        val_split: _description_. Defaults to .1.
+    """
     callbacks = [
         pl.callbacks.early_stopping.EarlyStopping(monitor='val_loss', patience=12, verbose=True),
     ]
-    model = CondVAEModel(dataset=dataset, core_layer_widths=[64, 64], latent_dim=4, loss_weights={'x': 1., 'y': 1., 'kl': 0.1, 'decorrelation': .5})
+    model = CondVAEModel(dataset=dataset, layer_widths=layer_widths, latent_dim=latent_dim, 
+                         loss_weights={'x': 1., 'y': 1., 'kl': 0.1, 'decorrelation': .5})
     model.fit(train_loader=train_gen, val_loader=val_gen, max_epochs=200, callbacks=callbacks)
-    model.save(f'../saved_models/{model_name}_{num_modes}modes/')
-    dataset.save(f'../saved_models/{model_name}_{num_modes}modes/test_data/')  
+    model.save(f'../saved_models/{model_name}/')
+    return model
     
-def sample_circles(model: CondVAEModel, data: Dict, num_samples: int) -> Dict:
-    pred_samples = {}
-    for isample in range(num_samples):
-        pred = {}
-        with torch.no_grad():
-            pred['x'] = model.decode(data=data)
-            pred.update(model.encode(pred['x']))
-        pred_samples[isample] = pred
-    pred = {'x': {}, 'y': {}}
-    for key in pred_samples[0]['x']:
-        pred['x'][key] = np.concatenate([pred_samples[isample]['x'][key][:,:,None] for isample in range(num_samples)], axis=2)
-    for key in pred_samples[0]['y']:
-        pred['y'][key] = np.concatenate([pred_samples[isample]['y'][key][:,:,None] for isample in range(num_samples)], axis=2)
+def sample_circles(model: CondVAEModel, data: Dict, num_designs: int) -> Dict:
+    with torch.no_grad():
+        pred = model.decode(data=data, return_lat=False, batch_size=num_designs)
+        pred.update(model.encode(pred['x'], batch_size=num_designs))
     return pred
 
-def sample_designs(model: CondVAEModel, data_gen: DataLoader, n_gen: int) -> Tuple[Dict, Dict]:
+def sample_designs(model: CondVAEModel, data_gen: DataLoader, n_gen: int, correction_factors: dict) -> Tuple[Dict, Dict]:
     if isinstance(data_gen, DataLoader):
         data = rec_concat_dict([batch for batch in data_gen])
     else:
         data = data_gen
-    pred = sample_circles(model, data, n_gen)
-    return pred['y'], pred['x']
+        
+    pred_perf_data = {}
+    for yfeature in model.dataset.y.keys():
+        pred_perf_data[yfeature] = np.empty([data[yfeature].shape[0], model.dataset.y[yfeature].get_config()['shape'][0], n_gen])
+        
+    pred_design_data = {}
+    for feature in model.dataset.x.keys():
+        pred_design_data[feature] = np.empty([data[yfeature].shape[0], model.dataset.x[feature].get_config()['shape'][0], n_gen])
+    keys = list(data.keys())
+    num_designs = data[keys[0]].shape[0]
+    for igen in range(n_gen):
+        pred_attr = sample_circles(model, data, num_designs)
+        for feature in model.dataset.y.keys():
+            if 'MMY' in feature:
+                corr_fact = correction_factors['modal_mass']
+            else:
+                corr_fact = correction_factors['freqs'] 
+            pred_perf_data[feature][:,:,igen] = pred_attr['y'][feature] + np.log10(corr_fact)
+    
+        for feature in model.dataset.x.keys():
+            pred_design_data[feature][:,:,igen] = pred_attr['x'][feature]
 
-def propose_design(model: CondVAEModel, design_dict: Dict, n_samples: int=1000, n_best: int=10) -> pd.DataFrame:
-    pred_perf_data, pred_design_data = sample_designs(model, design_dict, n_samples)
+    return pred_perf_data, pred_design_data
+
+def propose_design(model: CondVAEModel, design_dict: Dict, n_samples: int=1000, n_best: int=10, apply_log: list=[], 
+                   correction_factors: Dict={'freqs': 1., 'modal_mass': 1.}) -> pd.DataFrame:
+    pred_perf_data, pred_design_data = sample_designs(model, design_dict, n_samples, correction_factors)
     num_requested_designs = list(design_dict.values())[0].shape[0]
     design_error_dict = {}
 
@@ -59,8 +81,6 @@ def propose_design(model: CondVAEModel, design_dict: Dict, n_samples: int=1000, 
     design_error_dict['total'] = np.sum([design_error_dict[feature] for feature in design_dict], axis=0)    
     
     columns = [f'{k}_requested' for k in design_dict.keys()] + [f'{k}_predicted' for k in design_dict.keys()] + [k for k in model.dataset.x.keys()] + ['design index']
-
-    apply_log = ["cs_half_width", "cs_half_height", "spiral_turns", "cs_scale"]
     df_list = []
     for i in range(num_requested_designs):
         save_idx = np.argsort(design_error_dict['total'][i])[:n_best]
@@ -86,15 +106,7 @@ def get_design_error(model: CondVAEModel, data_gen: DataLoader, n_gen: int=1000,
     else:
         data = data_gen
     design_error = {}
-    pred_perf_data, pred_design_data = sample_designs(model, data, n_gen)
-    
-
-    for feature in model.dataset.y.keys():
-        if 'MMY' in feature:
-            corr_fact = correction_factors['modal_mass']
-        else:
-            corr_fact = correction_factors['freqs']
-        pred_perf_data[feature] += np.log10(corr_fact)
+    pred_perf_data, pred_design_data = sample_designs(model, data, n_gen, correction_factors=correction_factors)
         
     for feature, pred_data in pred_perf_data.items():
         if 'MMY' in feature:
@@ -107,6 +119,7 @@ def get_design_error(model: CondVAEModel, data_gen: DataLoader, n_gen: int=1000,
             design_error[feature] = np.abs(10 ** data_tmp[:,:,None] - 10 ** pred_data)
         else:
             design_error[feature] = np.abs(data_tmp[:,:,None] - pred_data)
+    print(design_error[feature].shape)
     if return_pred:
         return design_error, data, pred_perf_data, pred_design_data
     else:
@@ -163,7 +176,10 @@ def plot_design_errors(model: CondVAEModel, data_gen: DataLoader, linear: bool=F
                                                                           10 ** np.amax(data_tmp)], 'k--')
             ax1.plot([10 ** np.amin(data_tmp), 10 ** np.amax(data_tmp)], [10 ** np.amin(data_tmp-1), 
                                                                           10 ** np.amax(data_tmp-1)], 'k:')
-        ax2.set_xlabel(feature)
+        if linear:
+            ax2.set_xlabel(feature[4:])
+        else:
+            ax2.set_xlabel(feature)
         if ifeature == 0:
             ax1.set_ylabel('Abs. Design error')
             ax2.set_ylabel('Training data density', labelpad=10)
@@ -176,3 +192,34 @@ def plot_design_errors(model: CondVAEModel, data_gen: DataLoader, linear: bool=F
         ax2_list.append(ax2)
         
     return fig, ax1_list, ax2_list
+
+
+def plot_proposed_designs(model: CondVAEModel, train_gen: DataLoader, suggested_designs: pd.DataFrame, apply_log: list=[]):
+    for iname, name1 in enumerate(model.dataset.x.keys()):
+        if name1 in apply_log:
+            data1 = np.log10(suggested_designs[name1])
+        else:
+            data1 = suggested_designs[name1]
+        for jname, name2 in enumerate(model.dataset.x.keys()):
+            if iname < jname:
+                fig = plt.figure()
+                if name2 in apply_log:
+                    data2 = np.log10(suggested_designs[name2])
+                else:
+                    data2 = suggested_designs[name2]
+                ax = fig.add_subplot(1,1,1)
+                
+                sn.kdeplot(x=train_gen.dataset.dataset.x[name1].data[:,0], y=train_gen.dataset.dataset.x[name2].data[:,0], ax=ax,color='k', alpha=0.5)
+                designs = np.array(np.unique(suggested_designs['design index']), dtype=int)
+                for i in designs:
+                    ax.scatter(data1[suggested_designs['design index']==i], data2[suggested_designs['design index']==i], 
+                               c=f'C{i}', zorder=5, label=f'Design {i}')
+                #for i in range(10):
+                #    ax.scatter(y_list[i][name1], y_list[i][name2],c='C%d' %i, zorder=9)
+
+                ax.set_ylabel(name2)
+                ax.set_xlabel(name1)
+                ax.legend()
+                plt.tight_layout()
+                plt.show()
+    
