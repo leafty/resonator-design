@@ -4,7 +4,7 @@ sys.path.append('../')
 
 import numpy as np
 import pandas as pd
-from daaad.src.learning_model.dataset.data_set import DataSet, DataReal
+from daaad.src.dataset.data_set import DataSet, DataReal
 from typing import Tuple, List
 
 def get_log_modal_mass_y(reaction_force_y: np.ndarray, frequency: np.ndarray) -> np.ndarray:

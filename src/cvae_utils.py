@@ -77,7 +77,11 @@ def propose_design(model: CondVAEModel, design_dict: Dict, n_samples: int=1000, 
     design_error_dict = {}
 
     for feature in design_dict.keys():
-        design_error_dict[feature] = np.abs(pred_perf_data[feature] - design_dict[feature][:,:,None])[:,0]
+        if 'MMY' in feature:
+            corr_fact = correction_factors['modal_mass']
+        else:
+            corr_fact = correction_factors['freqs'] 
+        design_error_dict[feature] = np.abs(pred_perf_data[feature] - design_dict[feature][:,:,None] - np.log10(corr_fact))[:,0]
     design_error_dict['total'] = np.sum([design_error_dict[feature] for feature in design_dict], axis=0)    
     
     columns = [f'{k}_requested' for k in design_dict.keys()] + [f'{k}_predicted' for k in design_dict.keys()] + [k for k in model.dataset.x.keys()] + ['design index']
@@ -86,8 +90,12 @@ def propose_design(model: CondVAEModel, design_dict: Dict, n_samples: int=1000, 
         save_idx = np.argsort(design_error_dict['total'][i])[:n_best]
         df = pd.DataFrame(columns=columns)
         for k in design_dict.keys():
-            df[f'{k}_predicted'] = 10 ** pred_perf_data[k][i,0,save_idx]
-            df[f'{k}_requested'] = 10 ** design_dict[k][i,0] * np.ones(n_best)
+            if 'MMY' in k:
+                corr_fact = correction_factors['modal_mass']
+            else:
+                corr_fact = correction_factors['freqs'] 
+            df[f'{k}_predicted'] = 10 ** pred_perf_data[k][i,0,save_idx] 
+            df[f'{k}_requested'] = 10 ** design_dict[k][i,0] * np.ones(n_best) * corr_fact
         for k in model.dataset.x.keys():
             if k in apply_log:
                 df[k] = 10 ** pred_design_data[k][i,0,save_idx]
@@ -222,4 +230,33 @@ def plot_proposed_designs(model: CondVAEModel, train_gen: DataLoader, suggested_
                 ax.legend()
                 plt.tight_layout()
                 plt.show()
+                
+def plot_requested_predicted_designs(suggested_designs: pd.DataFrame, train_gen: DataLoader, num_modes: int, correction_factors: Dict={'modal_mass': 1,'freqs': 1}):
+    plt.figure(figsize=(5 * num_modes,5))
+
+    designs = np.array(np.unique(suggested_designs['design index']), dtype=int)
+
+    for imodes in range(num_modes):
+        ax = plt.subplot(1,num_modes,imodes+1)
+        sn.kdeplot(x=train_gen.dataset.dataset.y[f'log_M{imodes+1}_F'].data[:,0] + np.log10(correction_factors['freqs']),
+                y=train_gen.dataset.dataset.y[f'log_M{imodes+1}_MMY'].data[:,0] + np.log10(correction_factors['modal_mass']),ax=ax,color='k', alpha=0.5)
+        data1_request, data2_request = np.log10(suggested_designs[f'log_M{imodes+1}_F_requested']), np.log10(suggested_designs[f'log_M{imodes+1}_MMY_requested'])
+        data1_pred, data2_pred = np.log10(suggested_designs[f'log_M{imodes+1}_F_predicted']), np.log10(suggested_designs[f'log_M{imodes+1}_MMY_predicted'])
+        for idesign in designs:
+            ax.scatter(data1_pred[suggested_designs['design index']==idesign], data2_pred[suggested_designs['design index']==idesign], 
+                    marker='v', color=f'C{idesign}', s=100)
+            ax.scatter(data1_request[suggested_designs['design index']==idesign], data2_request[suggested_designs['design index']==idesign], 
+                    marker='o', color=f'C{idesign}', s=100, edgecolors='k')
+        ax.set_xlabel('Frequency [Hz]')
+        ax.set_ylabel('Modal mass [kg]')
+        ax.set_title(f'Mode {imodes+1}')
+        xticks = ax.get_xticks()
+        xticks = xticks[xticks % 1 == 0]
+        xticklabels = ['$10^{%d}$' %x for x in xticks] 
+        ax.set_xticks(xticks, xticklabels)
+        yticks = ax.get_yticks()
+        yticks = yticks[yticks % 1 == 0]
+        yticklabels = ['$10^{%d}$' %y for y in yticks] 
+        ax.set_yticks(yticks, yticklabels)
+        plt.tight_layout()
     
