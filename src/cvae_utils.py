@@ -2,8 +2,8 @@ import sys
 sys.path.append('../')
 sys.path.append('../src/')
 
-from daaad.src.models.cae import CondVAEModel
-from daaad.src.utils import rec_concat_dict
+from daaad_fixed.src.models.cae import CondVAEModel
+from daaad_fixed.src.utils import rec_concat_dict
 from torch.utils.data import DataLoader, Dataset
 
 import pytorch_lightning as pl

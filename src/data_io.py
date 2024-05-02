@@ -1,10 +1,10 @@
 import sys
-sys.path.append('../daaad/src/')
+sys.path.append('../daaad_fixed/src/')
 sys.path.append('../')
 
 import numpy as np
 import pandas as pd
-from daaad.src.dataset.data_set import DataSet, DataReal
+from daaad_fixed.src.dataset.data_set import DataSet, DataReal
 from typing import Tuple, List
 
 def get_log_modal_mass_y(reaction_force_y: np.ndarray, frequency: np.ndarray) -> np.ndarray:
