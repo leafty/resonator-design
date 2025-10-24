@@ -1,0 +1,6 @@
+data/* filter=lfs diff=lfs merge=lfs -text
+data/nab/* filter=lfs diff=lfs merge=lfs -text
+data/ntab/* filter=lfs diff=lfs merge=lfs -text
+data/mnist/* filter=lfs diff=lfs merge=lfs -text
+data/pedestrian_bridge/pedestrian_bridges_dataset.csv filter=lfs diff=lfs merge=lfs -text
+data/pedestrian_bridge/pedestrian_bridges_dataset_buildable.csv filter=lfs diff=lfs merge=lfs -text
