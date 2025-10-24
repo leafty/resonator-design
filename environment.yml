@@ -1,7 +1,18 @@
 name: "base"
-# channels:
-#  - defaults
-# dependencies:
-# - add packages here
-# - one per line
+channels:
+ - conda-forge
+dependencies:
+  - pip
+  - python==3.10
+  - pip:
+    - torch==1.12.1
+    - pytorch-lightning
+    - pandas
+    - matplotlib # ==3.6.0
+    - numpy
+    - scikit-learn
+    - sklearn-som
+    - seaborn
+    - torchsummary
+    - torchmetrics==0.11.4
 prefix: "/opt/conda"
