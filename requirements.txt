@@ -2,7 +2,7 @@ torch
 pandas
 matplotlib==3.6.0
 numpy
-pytorch-lightning==1.7.7
+pytorch-lightning # ==1.7.7
 scikit-learn
 sklearn-som
 seaborn
