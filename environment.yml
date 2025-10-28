@@ -3,7 +3,7 @@ channels:
  - conda-forge
 dependencies:
   - pip
-  - python==3.10.19
+  - python>=3.10,<3.11
   - pip:
     - torch==1.12.1
     - pytorch-lightning
